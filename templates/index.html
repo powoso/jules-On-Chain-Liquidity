@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Whale Monitor</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .log-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #111827;
+            color: #10b981;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .log-entry { margin-bottom: 0.5rem; white-space: pre-wrap;}
+        /* Custom scrollbar for logs */
+        .log-container::-webkit-scrollbar { width: 8px; }
+        .log-container::-webkit-scrollbar-track { background: #1f2937; }
+        .log-container::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        .log-container::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-indigo-600 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-water text-2xl mr-2"></i>
+                    <span class="font-bold text-xl tracking-tight">Whale Monitor</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="statusBadge" class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-400 text-white">Status: Offline</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col md:flex-row gap-8">
+
+        <!-- Left Column: Configuration -->
+        <div class="w-full md:w-1/3 space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-lg font-bold mb-4 text-gray-700 border-b pb-2"><i class="fa-solid fa-gear mr-2"></i> Configuration</h2>
+
+                <form id="configForm" class="space-y-4">
+                    <!-- RPC URL -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Polygon RPC URL</label>
+                        <input type="text" id="rpcUrlInput" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border" placeholder="https://polygon-rpc.com">
+                    </div>
+
+                    <!-- Alert Threshold -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Alert Threshold (USDC)</label>
+                        <div class="relative rounded-md shadow-sm">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span class="text-gray-500 sm:text-sm">$</span>
+                            </div>
+                            <input type="number" id="thresholdInput" class="w-full pl-7 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border" placeholder="10000">
+                        </div>
+                    </div>
+
+                    <!-- Whale Addresses -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tracked Whales (One per line)</label>
+                        <textarea id="whalesInput" rows="4" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border" placeholder="0xAddress..."></textarea>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="pt-2">
+                        <button type="button" id="saveConfigBtn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                            Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Controls -->
+            <div class="bg-white shadow rounded-lg p-6 flex justify-between gap-4">
+                <button id="startBtn" class="flex-1 py-2 px-4 rounded-md shadow-sm text-sm font-bold text-white bg-green-500 hover:bg-green-600 focus:outline-none transition-colors">
+                    <i class="fa-solid fa-play mr-1"></i> Start Monitor
+                </button>
+                <button id="stopBtn" class="flex-1 py-2 px-4 rounded-md shadow-sm text-sm font-bold text-white bg-red-500 hover:bg-red-600 focus:outline-none transition-colors cursor-not-allowed opacity-50" disabled>
+                    <i class="fa-solid fa-stop mr-1"></i> Stop
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Column: Live Logs Dashboard -->
+        <div class="w-full md:w-2/3 flex flex-col">
+            <div class="bg-white shadow rounded-lg p-6 flex-grow flex flex-col">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-lg font-bold text-gray-700"><i class="fa-solid fa-terminal mr-2"></i> Live Monitor Console</h2>
+                    <button id="clearLogsBtn" class="text-xs text-gray-500 hover:text-gray-800 transition-colors">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Clear
+                    </button>
+                </div>
+
+                <!-- Terminal Output -->
+                <div id="logContainer" class="log-container rounded-md p-4 text-sm shadow-inner flex-grow">
+                    <!-- Logs will be appended here -->
+                    <div class="text-gray-500 italic">Awaiting connection...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-auto py-4">
+        <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-500">
+            Powered by Web3.py & Flask
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const rpcUrlInput = document.getElementById('rpcUrlInput');
+            const thresholdInput = document.getElementById('thresholdInput');
+            const whalesInput = document.getElementById('whalesInput');
+            const saveConfigBtn = document.getElementById('saveConfigBtn');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const logContainer = document.getElementById('logContainer');
+            const clearLogsBtn = document.getElementById('clearLogsBtn');
+            const statusBadge = document.getElementById('statusBadge');
+
+            let eventSource = null;
+            let isRunning = false;
+
+            // Fetch initial configuration
+            async function fetchConfig() {
+                try {
+                    const res = await fetch('/api/config');
+                    const data = await res.json();
+                    if (data) {
+                        rpcUrlInput.value = data.rpc_url || '';
+                        thresholdInput.value = data.threshold || 10000;
+                        if (data.whales) {
+                            whalesInput.value = data.whales.join('\n');
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to load config", err);
+                }
+            }
+
+            // Save configuration
+            saveConfigBtn.addEventListener('click', async () => {
+                const whales = whalesInput.value.split('\n').map(w => w.trim()).filter(w => w);
+                const payload = {
+                    rpc_url: rpcUrlInput.value.trim(),
+                    threshold: thresholdInput.value,
+                    whales: whales
+                };
+
+                saveConfigBtn.textContent = 'Saving...';
+                try {
+                    const res = await fetch('/api/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        saveConfigBtn.textContent = 'Saved!';
+                        setTimeout(() => saveConfigBtn.textContent = 'Save Configuration', 2000);
+                    }
+                } catch (err) {
+                    alert("Error saving config");
+                    saveConfigBtn.textContent = 'Save Configuration';
+                }
+            });
+
+            // Update UI based on monitor status
+            function updateUIState(running) {
+                isRunning = running;
+                if (running) {
+                    statusBadge.textContent = 'Status: Monitoring';
+                    statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white shadow animate-pulse';
+                    startBtn.disabled = true;
+                    startBtn.classList.add('cursor-not-allowed', 'opacity-50');
+                    stopBtn.disabled = false;
+                    stopBtn.classList.remove('cursor-not-allowed', 'opacity-50');
+                    connectSSE();
+                } else {
+                    statusBadge.textContent = 'Status: Stopped';
+                    statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-gray-400 text-white';
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('cursor-not-allowed', 'opacity-50');
+                    stopBtn.disabled = true;
+                    stopBtn.classList.add('cursor-not-allowed', 'opacity-50');
+                    if (eventSource) {
+                        eventSource.close();
+                        eventSource = null;
+                    }
+                }
+            }
+
+            // Check monitor status
+            async function checkStatus() {
+                try {
+                    const res = await fetch('/api/monitor/status');
+                    const data = await res.json();
+                    updateUIState(data.running);
+                } catch (err) {
+                    console.error("Error checking status", err);
+                }
+            }
+
+            // Append log to console
+            function appendLog(msg) {
+                if(logContainer.innerHTML.includes('Awaiting connection...')) {
+                    logContainer.innerHTML = '';
+                }
+                const div = document.createElement('div');
+                div.className = 'log-entry';
+                // Highlight alerts
+                if (msg.includes('ALERT')) {
+                    div.innerHTML = `<span class="text-red-500 font-bold">${msg}</span>`;
+                } else if (msg.includes('Connected') || msg.includes('Starting')) {
+                    div.innerHTML = `<span class="text-blue-400">${msg}</span>`;
+                } else {
+                    div.textContent = msg;
+                }
+                logContainer.appendChild(div);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            // Connect Server-Sent Events for logs
+            function connectSSE() {
+                if (eventSource) return;
+                eventSource = new EventSource('/api/logs');
+                eventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    if (data.message) {
+                        appendLog(data.message);
+                    }
+                };
+                eventSource.onerror = function() {
+                    console.error("SSE Connection lost.");
+                    eventSource.close();
+                    eventSource = null;
+                };
+            }
+
+            // Start monitor
+            startBtn.addEventListener('click', async () => {
+                try {
+                    await fetch('/api/monitor/start', { method: 'POST' });
+                    updateUIState(true);
+                    logContainer.innerHTML = '';
+                    appendLog("Initializing monitor...");
+                } catch (err) {
+                    alert("Failed to start monitor");
+                }
+            });
+
+            // Stop monitor
+            stopBtn.addEventListener('click', async () => {
+                try {
+                    await fetch('/api/monitor/stop', { method: 'POST' });
+                    appendLog("Sending stop signal... waiting for current loop to finish.");
+                    // The backend will eventually stop the thread. We can check status again.
+                    setTimeout(checkStatus, 2000);
+                } catch (err) {
+                    alert("Failed to stop monitor");
+                }
+            });
+
+            // Clear logs
+            clearLogsBtn.addEventListener('click', () => {
+                logContainer.innerHTML = '';
+            });
+
+            // Initialization
+            fetchConfig();
+            checkStatus();
+            // Poll status every 5 seconds to ensure UI stays synced if stopped externally
+            setInterval(checkStatus, 5000);
+        });
+    </script>
+</body>
+</html>
